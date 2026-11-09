@@ -1,18 +1,19 @@
 <div align="center">
-  <img alt="OpenJarvis" src="assets/OpenJarvis_Horizontal_Logo.png" width="400">
+  <img alt="Gringo AI" src="assets/GringoAI_Logo.png" width="520">
 
-  <p><i>Personal AI, On Personal Devices.</i></p>
+  <p><i>Dein persönlicher KI-Assistent – lokal auf deinem eigenen Gerät.</i></p>
 
   <p>
-    <a href="https://arxiv.org/abs/2605.17172"><img src="https://img.shields.io/badge/arXiv-2605.17172-b31b1b.svg" alt="arXiv"></a>
-    <a href="https://openjarvis.stanford.edu/"><img src="https://img.shields.io/badge/project-OpenJarvis-blue" alt="Project"></a>
-    <a href="https://open-jarvis.github.io/OpenJarvis/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
     <img src="https://img.shields.io/badge/python-%3E%3D3.10-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License">
-    <a href="https://discord.gg/CMVBmDQ5Fj"><img src="https://img.shields.io/badge/discord-join-7289da?logo=discord&logoColor=white" alt="Discord"></a>
-    <a href="https://x.com/OpenJarvisAI"><img src="https://img.shields.io/badge/X-@OpenJarvisAI-black?logo=x&logoColor=white" alt="X / Twitter"></a>
+    <a href="https://github.com/open-jarvis/OpenJarvis"><img src="https://img.shields.io/badge/basiert%20auf-OpenJarvis-00d2ff" alt="Basiert auf OpenJarvis"></a>
   </p>
 </div>
+
+> **Gringo AI** ist ein Fork von [OpenJarvis](https://github.com/open-jarvis/OpenJarvis)
+> (Hazy Research & Scaling Intelligence Lab, Stanford), lizenziert unter Apache 2.0.
+> Alle Rechte am Original-Code liegen bei den OpenJarvis-Autoren.
+> Die Original-Dokumentation folgt unten.
 
 ---
 
