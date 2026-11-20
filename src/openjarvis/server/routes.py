@@ -121,22 +121,6 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
                 exc_info=True,
             )
 
-    # Gringo AI: echte Live-Daten (z. B. Wetter) mitgeben, damit nichts erfunden wird.
-    if not identity_already_applied:
-        try:
-            from openjarvis.server.gringo_live import weather_context
-
-            last_user = next(
-                (m for m in reversed(messages) if m.role == Role.USER), None
-            )
-            extra = weather_context(last_user.text or "") if last_user else None
-            if extra:
-                prompt = f"{prompt}\n\n{extra}" if prompt else extra
-        except Exception:
-            logging.getLogger("openjarvis.server").warning(
-                "Gringo live context failed", exc_info=True
-            )
-
     system_parts = []
     if prompt:
         system_parts.append(prompt)
@@ -182,6 +166,22 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
         and not request_body.tools
         and (not request_body.stream or bool(getattr(agent, "_tools", None)))
     )
+
+    # Gringo AI: echte Live-Daten (z. B. Wetter) an die letzte Nutzerfrage
+    # haengen, damit Agent- und Direkt-Pfad nichts erfinden muessen.
+    try:
+        from openjarvis.server.gringo_live import weather_context
+
+        for _m in reversed(request_body.messages):
+            if _m.role == "user" and isinstance(_m.content, str) and _m.content:
+                _extra = await asyncio.to_thread(weather_context, _m.content)
+                if _extra:
+                    _m.content = f"{_extra}\n\n---\nFrage vom Chef: {_m.content}"
+                break
+    except Exception:
+        logging.getLogger("openjarvis.server").warning(
+            "Gringo live context failed", exc_info=True
+        )
 
     # Inject memory context into messages before dispatching
     config = getattr(request.app.state, "config", None)
