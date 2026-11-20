@@ -77,6 +77,7 @@ cleanup() {
   echo
   info "Gringo AI wird beendet…"
   for pid in ${PIDS[@]+"${PIDS[@]}"}; do kill "$pid" 2>/dev/null || true; done
+  pkill -f "jarvis serve --port 8000" 2>/dev/null || true
   wait 2>/dev/null || true
   ok "Beendet. Du kannst dieses Fenster jetzt schließen."
 }
@@ -103,7 +104,18 @@ if curl -sf http://localhost:8000/health &>/dev/null; then
   ok "Backend läuft bereits"
 else
   info "Starte Gringo-AI-Backend…"
-  uv run jarvis serve --port 8000 &>"$REPO_ROOT/.gringo-backend.log" &
+  # Läuft in einer Schleife: Nach einem Update aus der Gringo-Werkstatt
+  # beendet sich das Backend mit Code 42 und wird automatisch neu gestartet.
+  (
+    export GRINGO_SUPERVISED=1
+    while true; do
+      uv run jarvis serve --port 8000 >>"$REPO_ROOT/.gringo-backend.log" 2>&1
+      code=$?
+      [ "$code" -eq 42 ] || break
+      echo "[info]  Gringo AI wurde aktualisiert – starte neu…"
+      sleep 1
+    done
+  ) &
   PIDS+=($!)
   for _ in $(seq 1 60); do
     curl -sf http://localhost:8000/health &>/dev/null && break

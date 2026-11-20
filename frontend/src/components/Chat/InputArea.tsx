@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Square, Paperclip, Search } from 'lucide-react';
+import { Send, Square, Paperclip, Search, Hammer, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore, generateId } from '../../lib/store';
 import { streamChat, streamResearch } from '../../lib/sse';
-import { fetchSavings, getBase } from '../../lib/api';
+import { fetchSavings, getBase, startGringoBuild, applyGringoBuild, discardGringoBuild } from '../../lib/api';
+import type { GringoBuildResult } from '../../lib/api';
 import { listConnectors, getSyncStatus } from '../../lib/connectors-api';
 import { serializeToolCallArguments } from '../../lib/tool-call';
 import {
@@ -103,6 +104,68 @@ export function InputArea() {
   const corpusSync = useResearchCorpusSync(deepResearch);
   const isCurrentChatStreaming = streamState.isStreaming && streamState.conversationId === activeId;
 
+  // Gringo-Werkstatt: Claude baut neue Funktionen, Nutzer bestätigt.
+  const [buildMode, setBuildMode] = useState(false);
+  const [building, setBuilding] = useState(false);
+  const [pendingBuild, setPendingBuild] = useState<GringoBuildResult | null>(null);
+  const [buildBusy, setBuildBusy] = useState(false);
+
+  const runBuild = useCallback(async (task: string) => {
+    setInput('');
+    let convId = useAppStore.getState().activeId;
+    if (!convId) convId = createConversation(selectedModel || 'gringo-werkstatt');
+    addMessage(convId, { id: generateId(), role: 'user', content: `🛠️ Bauauftrag: ${task}`, timestamp: Date.now() });
+    addMessage(convId, {
+      id: generateId(),
+      role: 'assistant',
+      content: '🛠️ Claude baut gerade… Das kann ein paar Minuten dauern. Ich sage Bescheid, wenn es fertig ist.',
+      timestamp: Date.now(),
+    });
+    setBuilding(true);
+    try {
+      const result = await startGringoBuild(task);
+      const files = result.files.length
+        ? `\n\n**Geänderte Dateien:**\n\n\`\`\`\n${result.files.join('\n')}\n\`\`\``
+        : '';
+      const question = result.status === 'ready'
+        ? '\n\n**Soll ich das übernehmen?** Bitte unten auf „Übernehmen“ oder „Verwerfen“ klicken.'
+        : '';
+      updateLastAssistant(convId, `${result.summary}${question}${files}`);
+      setPendingBuild(result.status === 'ready' ? result : null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      updateLastAssistant(convId, `❌ Der Bauauftrag hat nicht geklappt: ${msg}`);
+      toast.error(msg);
+    } finally {
+      setBuilding(false);
+      setBuildMode(false);
+    }
+  }, [addMessage, createConversation, selectedModel, updateLastAssistant]);
+
+  const decideBuild = useCallback(async (apply: boolean) => {
+    if (!pendingBuild) return;
+    setBuildBusy(true);
+    try {
+      if (apply) {
+        const res = await applyGringoBuild(pendingBuild.id);
+        toast.success(
+          res.restarting
+            ? 'Übernommen! Gringo AI startet gleich neu …'
+            : 'Übernommen! Bitte Gringo AI einmal neu starten.',
+        );
+        if (res.restarting) setTimeout(() => window.location.reload(), 8000);
+      } else {
+        await discardGringoBuild(pendingBuild.id);
+        toast('Verworfen – es wurde nichts geändert.');
+      }
+      setPendingBuild(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBuildBusy(false);
+    }
+  }, [pendingBuild]);
+
   const {
     state: speechState,
     error: speechError,
@@ -174,6 +237,10 @@ export function InputArea() {
   const sendMessage = useCallback(async () => {
     const content = input.trim();
     if (!content || streamState.isStreaming) return;
+    if (buildMode) {
+      if (!building) void runBuild(content);
+      return;
+    }
     if (!selectedModel) {
       toast.error('Pick a model first (⌘K)');
       return;
@@ -550,6 +617,9 @@ export function InputArea() {
     setStreamState,
     resetStream,
     deepResearch,
+    buildMode,
+    building,
+    runBuild,
     temperature,
     maxTokens,
   ]);
@@ -581,7 +651,51 @@ export function InputArea() {
             <Search size={12} />
             Deep Research
           </button>
+          <button
+            type="button"
+            onClick={() => setBuildMode(!buildMode)}
+            disabled={building || !!pendingBuild}
+            aria-pressed={buildMode}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors cursor-pointer disabled:cursor-default disabled:opacity-50"
+            style={{
+              background: buildMode ? 'var(--color-accent-subtle)' : 'transparent',
+              border: `1px solid ${buildMode ? 'var(--color-accent)' : 'var(--color-border)'}`,
+              color: buildMode ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+            }}
+            title="Bauen: Claude baut eine neue Funktion in Gringo AI (mit deiner Bestätigung)"
+          >
+            <Hammer size={12} />
+            {building ? 'Claude baut…' : 'Bauen'}
+          </button>
         </div>
+        {pendingBuild && (
+          <div
+            className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs"
+            style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
+          >
+            <span className="flex-1" style={{ color: 'var(--color-text)' }}>
+              🛠️ Claude ist fertig. Änderungen übernehmen?
+            </span>
+            <button
+              type="button"
+              disabled={buildBusy}
+              onClick={() => decideBuild(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full cursor-pointer disabled:opacity-50"
+              style={{ background: 'var(--color-accent)', color: 'white' }}
+            >
+              <Check size={12} /> Übernehmen
+            </button>
+            <button
+              type="button"
+              disabled={buildBusy}
+              onClick={() => decideBuild(false)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full cursor-pointer disabled:opacity-50"
+              style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
+            >
+              <X size={12} /> Verwerfen
+            </button>
+          </div>
+        )}
         {deepResearch && corpusSync.syncing && corpusSync.itemsSynced > 0 && (
           <div
             className="text-[11px] leading-snug"
@@ -608,7 +722,7 @@ export function InputArea() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={selectedModel ? 'Nachricht an Gringo AI...' : 'Pick a model first (⌘K)...'}
+          placeholder={buildMode ? 'Was soll Claude in Gringo AI bauen?' : selectedModel ? 'Nachricht an Gringo AI...' : 'Pick a model first (⌘K)...'}
           rows={1}
           className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
           style={{ color: 'var(--color-text)', maxHeight: '200px' }}
@@ -633,7 +747,7 @@ export function InputArea() {
             />
             <button
               onClick={sendMessage}
-              disabled={streamState.isStreaming || !input.trim() || modelLoading || !selectedModel}
+              disabled={streamState.isStreaming || building || !input.trim() || (!buildMode && (modelLoading || !selectedModel))}
               title={selectedModel ? 'Send message' : 'Pick a model first (⌘K)'}
               className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-default"
               style={{

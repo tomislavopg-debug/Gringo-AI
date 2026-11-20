@@ -1226,3 +1226,42 @@ export async function setInferenceSource(
 export const stageInferenceSource = (
   src: InferenceSource & { apiKey?: string },
 ): Promise<void> => setInferenceSource(src, { pending: true });
+
+// ---------------------------------------------------------------------------
+// Gringo-Werkstatt: Claude baut neue Funktionen (mit Bestätigung)
+// ---------------------------------------------------------------------------
+
+export interface GringoBuildResult {
+  id: string;
+  status: 'ready' | 'no_changes';
+  summary: string;
+  files: string[];
+}
+
+async function gringoBuildPost<T>(path: string, body?: unknown): Promise<T> {
+  const res = await apiFetch(`/v1/gringo/build${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const data = await res.json();
+      detail = typeof data.detail === 'string' ? data.detail : '';
+    } catch {
+      // keep status-only message
+    }
+    throw new Error(detail || `Fehler ${res.status}`);
+  }
+  return res.json();
+}
+
+export const startGringoBuild = (task: string) =>
+  gringoBuildPost<GringoBuildResult>('', { task });
+
+export const applyGringoBuild = (id: string) =>
+  gringoBuildPost<{ status: string; pushed: boolean; restarting: boolean }>(`/${id}/apply`);
+
+export const discardGringoBuild = (id: string) =>
+  gringoBuildPost<{ status: string }>(`/${id}/discard`);
