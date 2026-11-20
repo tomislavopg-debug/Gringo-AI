@@ -1147,6 +1147,36 @@ async def list_models(request: Request) -> ModelListResponse:
     )
 
 
+def _find_ollama_engine(engine, engine_name: str = ""):
+    """Return the Ollama engine, unwrapping instrumented/guarded/multi engines.
+
+    Gringo AI: on Apple Silicon the server often runs a ``MultiEngine``
+    (Ollama + MLX), which previously blocked model pulls from the UI.
+    """
+    seen: set[int] = set()
+    stack = [engine]
+    while stack:
+        eng = stack.pop()
+        if eng is None or id(eng) in seen:
+            continue
+        seen.add(id(eng))
+        if getattr(eng, "engine_id", "") == "ollama":
+            return eng
+        for attr in ("_inner", "_engine"):
+            inner = getattr(eng, attr, None)
+            if inner is not None:
+                stack.append(inner)
+        for entry in getattr(eng, "_engines", None) or []:
+            if isinstance(entry, tuple) and len(entry) == 2:
+                key, sub = entry
+                if key == "ollama":
+                    return sub
+                stack.append(sub)
+    if engine_name == "ollama":
+        return engine
+    return None
+
+
 @router.post("/v1/models/pull")
 async def pull_model(request: Request):
     """Pull / download a model from the Ollama registry."""
@@ -1155,10 +1185,10 @@ async def pull_model(request: Request):
     if not model_name:
         raise HTTPException(status_code=400, detail="'model' field is required")
 
-    engine = request.app.state.engine
     engine_name = getattr(request.app.state, "engine_name", "")
     # Only Ollama supports pulling
-    if engine_name != "ollama" and getattr(engine, "engine_id", "") != "ollama":
+    engine = _find_ollama_engine(request.app.state.engine, engine_name)
+    if engine is None:
         raise HTTPException(
             status_code=501,
             detail="Model pulling is only supported with the Ollama engine",
@@ -1188,9 +1218,9 @@ async def pull_model(request: Request):
 @router.delete("/v1/models/{model_name:path}")
 async def delete_model(model_name: str, request: Request):
     """Delete a model from Ollama."""
-    engine = request.app.state.engine
     engine_name = getattr(request.app.state, "engine_name", "")
-    if engine_name != "ollama" and getattr(engine, "engine_id", "") != "ollama":
+    engine = _find_ollama_engine(request.app.state.engine, engine_name)
+    if engine is None:
         raise HTTPException(status_code=501, detail="Only supported with Ollama engine")
 
     import httpx as _httpx
