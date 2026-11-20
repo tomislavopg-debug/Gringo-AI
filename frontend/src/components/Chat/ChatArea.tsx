@@ -11,9 +11,9 @@ import { listConnectors } from '../../lib/connectors-api';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return 'Guten Morgen';
+  if (hour < 18) return 'Guten Tag';
+  return 'Guten Abend';
 }
 
 export function ChatArea() {
@@ -192,7 +192,7 @@ export function ChatArea() {
               {getGreeting()}
             </h2>
             <p className="text-sm text-center max-w-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-              Ask anything. Your AI runs locally — private, fast, and always available.
+              Frag mich alles. Gringo AI läuft lokal auf deinem Gerät – privat, schnell und immer verfügbar.
             </p>
 
             {/* Quick action hints */}
