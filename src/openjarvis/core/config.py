@@ -1643,7 +1643,7 @@ class SpeechConfig:
     # Kokoro IDs: bm_george / bm_lewis (British male), bf_emma / bf_isabella
     # (British female), af_* / am_* (American).
     tts_backend: str = "macos_say"  # Gringo AI default; "kokoro", "openai_tts", "cartesia", "elevenlabs"
-    voice_id: str = ""  # empty = best installed German macOS voice
+    voice_id: str = "Anna"  # Gringo AI: Standard-Anna (empty = beste installierte deutsche Stimme)
     voice_speed: float = 1.0
 
 
