@@ -121,6 +121,22 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
                 exc_info=True,
             )
 
+    # Gringo AI: echte Live-Daten (z. B. Wetter) mitgeben, damit nichts erfunden wird.
+    if not identity_already_applied:
+        try:
+            from openjarvis.server.gringo_live import weather_context
+
+            last_user = next(
+                (m for m in reversed(messages) if m.role == Role.USER), None
+            )
+            extra = weather_context(last_user.text or "") if last_user else None
+            if extra:
+                prompt = f"{prompt}\n\n{extra}" if prompt else extra
+        except Exception:
+            logging.getLogger("openjarvis.server").warning(
+                "Gringo live context failed", exc_info=True
+            )
+
     system_parts = []
     if prompt:
         system_parts.append(prompt)
