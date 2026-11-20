@@ -31,6 +31,33 @@ echo -e "${NC}"
 
 URL="http://localhost:5173"
 
+# ── Automatische Updates von GitHub ──────────────────────────────────
+if [ -z "${GRINGO_UPDATED:-}" ] && [ -d .git ]; then
+  info "Suche nach Updates…"
+  OLD_HEAD="$(git rev-parse HEAD 2>/dev/null || true)"
+  if git pull --ff-only -q 2>/dev/null; then
+    NEW_HEAD="$(git rev-parse HEAD 2>/dev/null || true)"
+    if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
+      ok "Update installiert."
+      # Python-Bausteine nachziehen, falls sich etwas geändert hat
+      if ! git diff --quiet "$OLD_HEAD" "$NEW_HEAD" -- pyproject.toml uv.lock 2>/dev/null; then
+        info "Aktualisiere Python-Bausteine…"
+        uv sync --extra desktop --extra tools-search --quiet || warn "uv sync fehlgeschlagen"
+      fi
+      if ! git diff --quiet "$OLD_HEAD" "$NEW_HEAD" -- frontend/package.json frontend/package-lock.json 2>/dev/null; then
+        info "Aktualisiere Oberfläche…"
+        (cd frontend && npm install --silent) || warn "npm install fehlgeschlagen"
+      fi
+    else
+      ok "Alles aktuell."
+    fi
+  else
+    warn "Update nicht möglich (kein Internet?) – starte mit aktueller Version."
+  fi
+  export GRINGO_UPDATED=1
+  exec "$0" "$@"
+fi
+
 # Läuft Gringo AI schon? Dann nur den Browser öffnen.
 if curl -sf http://localhost:8000/health &>/dev/null && curl -sf "$URL" &>/dev/null; then
   ok "Gringo AI läuft bereits – öffne den Browser."
