@@ -58,6 +58,13 @@ if [ -z "${GRINGO_UPDATED:-}" ] && [ -d .git ]; then
   exec "$0" "$@"
 fi
 
+# Mac-App reparieren, falls sie noch die alte Skript-Version ist (Rosetta-Abfrage)
+APP_EXE="/Applications/Gringo AI.app/Contents/MacOS/GringoAI"
+if [ -f "$APP_EXE" ] && [ "$(head -c 2 "$APP_EXE")" = "#!" ] && command -v clang &>/dev/null; then
+  info "Aktualisiere die Gringo-AI-App im Dock…"
+  ./scripts/install-mac-app.sh >/dev/null 2>&1 && ok "App aktualisiert" || warn "App-Update fehlgeschlagen"
+fi
+
 # Läuft Gringo AI schon? Dann nur den Browser öffnen.
 if curl -sf http://localhost:8000/health &>/dev/null && curl -sf "$URL" &>/dev/null; then
   ok "Gringo AI läuft bereits – öffne den Browser."
