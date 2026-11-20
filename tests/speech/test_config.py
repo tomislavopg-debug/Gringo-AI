@@ -6,8 +6,8 @@ from openjarvis.core.config import JarvisConfig, SpeechConfig
 def test_speech_config_defaults():
     cfg = SpeechConfig()
     assert cfg.backend == "auto"
-    assert cfg.model == "base"
-    assert cfg.language == ""
+    assert cfg.model == "small"  # Gringo AI default
+    assert cfg.language == "de"  # Gringo AI default
     assert cfg.device == "auto"
     assert cfg.compute_type == "float16"
 

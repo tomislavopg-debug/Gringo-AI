@@ -139,10 +139,11 @@ def test_synthesis_failure_falls_back_without_retrying_or_leaking_voice(monkeypa
     speak("First reply", Console(), session)
     speak("Second reply", Console(), session)
 
-    assert checked == ["openai_tts", "kokoro"]
+    # Gringo AI: macOS ``say`` is first in the fallback order.
+    assert checked == ["openai_tts", "macos_say"]
     assert spoken == [
         ("openai_tts", "nova"),
-        ("kokoro", "bm_george"),
-        ("kokoro", "bm_george"),
+        ("macos_say", ""),
+        ("macos_say", ""),
     ]
     assert played == [b"wav", b"wav"]

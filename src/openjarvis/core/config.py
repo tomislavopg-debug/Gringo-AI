@@ -1625,8 +1625,8 @@ class SpeechConfig:
     """Speech-to-text settings."""
 
     backend: str = "auto"  # "auto", "faster-whisper", "openai", "deepgram"
-    model: str = "base"  # Whisper model size: tiny, base, small, medium, large-v3
-    language: str = ""  # Empty = auto-detect
+    model: str = "small"  # Gringo AI: better German. Whisper model size: tiny, base, small, medium, large-v3
+    language: str = "de"  # Gringo AI: German by default (empty = auto-detect)
     device: str = "auto"  # "auto", "cpu", "cuda"
     compute_type: str = "float16"  # "float16", "int8", "float32"
     # Text-to-speech. ``voice_id`` is interpreted by ``tts_backend`` only --
@@ -1634,8 +1634,8 @@ class SpeechConfig:
     # back to a different backend that backend's own default voice is used.
     # Kokoro IDs: bm_george / bm_lewis (British male), bf_emma / bf_isabella
     # (British female), af_* / am_* (American).
-    tts_backend: str = "kokoro"  # "kokoro", "openai_tts", "cartesia", "elevenlabs"
-    voice_id: str = "bm_george"
+    tts_backend: str = "macos_say"  # Gringo AI default; "kokoro", "openai_tts", "cartesia", "elevenlabs"
+    voice_id: str = ""  # empty = best installed German macOS voice
     voice_speed: float = 1.0
 
 
