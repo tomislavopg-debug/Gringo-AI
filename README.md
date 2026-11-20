@@ -15,6 +15,19 @@
 > Alle Rechte am Original-Code liegen bei den OpenJarvis-Autoren.
 > Die Original-Dokumentation folgt unten.
 
+## 🚀 Gringo AI starten (Mac)
+
+**Einmalig einrichten** – im Terminal im Projektordner:
+
+```bash
+./scripts/install-mac-app.sh
+```
+
+Danach liegt **Gringo AI** mit dem G-Logo im Dock. Ein Klick darauf startet alles
+und öffnet den Browser. Zum Beenden im Terminal-Fenster `ctrl + C` drücken.
+
+Ohne App geht es auch per Doppelklick auf `scripts/gringo-start.command`.
+
 ---
 
 <div align="center">

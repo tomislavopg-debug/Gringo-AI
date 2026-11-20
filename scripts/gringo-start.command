@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# ── Gringo AI – Schnellstart ─────────────────────────────────────────
+# Startet Ollama, Backend und Oberfläche und öffnet den Browser.
+# Beim allerersten Mal (oder nach größeren Updates) wird automatisch
+# ./scripts/quickstart.sh ausgeführt, das alles installiert.
+#
+# Beenden: in diesem Fenster  ctrl + C  drücken.
+# ─────────────────────────────────────────────────────────────────────
+set -uo pipefail
+
+GREEN='\033[0;32m'; BLUE='\033[0;34m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
+BOLD='\033[1m'; NC='\033[0m'
+info() { echo -e "${BLUE}[info]${NC}  $*"; }
+ok()   { echo -e "${GREEN}[ok]${NC}    $*"; }
+warn() { echo -e "${YELLOW}[warn]${NC}  $*"; }
+fail() { echo -e "${RED}[fehler]${NC} $*"; echo; read -r -p "Enter drücken zum Schließen…" _; exit 1; }
+
+# Programme von Homebrew, uv und Rust finden (auch wenn per Doppelklick gestartet)
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT" || fail "Projektordner nicht gefunden: $REPO_ROOT"
+
+clear
+echo -e "${BOLD}"
+echo "   ┌──────────────────────────────────┐"
+echo "   │           Gringo AI              │"
+echo "   └──────────────────────────────────┘"
+echo -e "${NC}"
+
+URL="http://localhost:5173"
+
+# Läuft Gringo AI schon? Dann nur den Browser öffnen.
+if curl -sf http://localhost:8000/health &>/dev/null && curl -sf "$URL" &>/dev/null; then
+  ok "Gringo AI läuft bereits – öffne den Browser."
+  open "$URL"
+  sleep 2
+  exit 0
+fi
+
+# Erste Einrichtung noch nicht gemacht? Dann den vollständigen Quickstart nehmen.
+if [ ! -d ".venv" ] || [ ! -d "frontend/node_modules" ]; then
+  warn "Erste Einrichtung – das dauert beim ersten Mal 10–20 Minuten."
+  exec ./scripts/quickstart.sh
+fi
+
+PIDS=()
+cleanup() {
+  echo
+  info "Gringo AI wird beendet…"
+  for pid in ${PIDS[@]+"${PIDS[@]}"}; do kill "$pid" 2>/dev/null || true; done
+  wait 2>/dev/null || true
+  ok "Beendet. Du kannst dieses Fenster jetzt schließen."
+}
+trap cleanup EXIT INT TERM
+
+# 1. Ollama
+if curl -sf http://localhost:11434/api/tags &>/dev/null; then
+  ok "Ollama läuft"
+else
+  info "Starte Ollama…"
+  command -v ollama &>/dev/null || fail "Ollama nicht gefunden. Bitte 'brew install ollama' ausführen."
+  ollama serve &>/dev/null &
+  PIDS+=($!)
+  for _ in $(seq 1 20); do
+    curl -sf http://localhost:11434/api/tags &>/dev/null && break
+    sleep 0.5
+  done
+  curl -sf http://localhost:11434/api/tags &>/dev/null || fail "Ollama startet nicht."
+  ok "Ollama gestartet"
+fi
+
+# 2. Backend
+if curl -sf http://localhost:8000/health &>/dev/null; then
+  ok "Backend läuft bereits"
+else
+  info "Starte Gringo-AI-Backend…"
+  uv run jarvis serve --port 8000 &>"$REPO_ROOT/.gringo-backend.log" &
+  PIDS+=($!)
+  for _ in $(seq 1 60); do
+    curl -sf http://localhost:8000/health &>/dev/null && break
+    sleep 1
+  done
+  if curl -sf http://localhost:8000/health &>/dev/null; then
+    ok "Backend läuft"
+  else
+    warn "Backend braucht länger… (Details: .gringo-backend.log)"
+  fi
+fi
+
+# 3. Oberfläche
+info "Starte Oberfläche…"
+(cd frontend && npm run dev) &>"$REPO_ROOT/.gringo-frontend.log" &
+PIDS+=($!)
+for _ in $(seq 1 30); do
+  curl -sf "$URL" &>/dev/null && break
+  sleep 0.5
+done
+ok "Oberfläche läuft"
+
+open "$URL"
+
+echo
+echo -e "${GREEN}${BOLD}   Gringo AI läuft! 🚀${NC}"
+echo
+echo "   Im Browser:  $URL"
+echo
+echo -e "   ${BOLD}Zum Beenden:${NC} in diesem Fenster  ctrl + C  drücken."
+echo "   (Dieses Fenster bitte offen lassen.)"
+echo
+
+wait
