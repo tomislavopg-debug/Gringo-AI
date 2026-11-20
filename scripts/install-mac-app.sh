@@ -31,16 +31,36 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>GringoAI</string>
   <key>CFBundleIconFile</key><string>GringoAI</string>
   <key>LSUIElement</key><true/>
+  <key>LSArchitecturePriority</key>
+  <array><string>arm64</string><string>x86_64</string></array>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
 </dict>
 </plist>
 PLIST
 
-cat > "$APP/Contents/MacOS/GringoAI" <<LAUNCH
+START_CMD="$REPO_ROOT/scripts/gringo-start.command"
+chmod +x "$START_CMD"
+
+# Kleines natives Startprogramm (Apple-Chip) bauen, damit macOS nicht nach
+# Rosetta fragt. Fallback: Shell-Skript.
+TMP_C="$(mktemp -t gringo-launcher).c"
+cat > "$TMP_C" <<CSRC
+#include <unistd.h>
+int main(void) {
+  execl("/usr/bin/open", "open", "-a", "Terminal", "$START_CMD", (char *)0);
+  return 1;
+}
+CSRC
+if command -v clang &>/dev/null && clang -O2 -o "$APP/Contents/MacOS/GringoAI" "$TMP_C" 2>/dev/null; then
+  echo "Natives Startprogramm gebaut."
+else
+  cat > "$APP/Contents/MacOS/GringoAI" <<LAUNCH
 #!/bin/bash
-# Öffnet ein Terminal-Fenster und startet darin Gringo AI.
-open -a Terminal "$REPO_ROOT/scripts/gringo-start.command"
+open -a Terminal "$START_CMD"
 LAUNCH
-chmod +x "$APP/Contents/MacOS/GringoAI" "$REPO_ROOT/scripts/gringo-start.command"
+fi
+rm -f "$TMP_C"
+chmod +x "$APP/Contents/MacOS/GringoAI"
 
 # Icon-Cache auffrischen
 touch "$APP"
