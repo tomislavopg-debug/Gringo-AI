@@ -12,6 +12,7 @@ import {
   resolveChatEngine,
 } from '../../lib/chat-telemetry';
 import { MicButton } from './MicButton';
+import { VoiceModeToggle } from './VoiceModeToggle';
 import { useSpeech } from '../../hooks/useSpeech';
 import type {
   ChatMessage,
@@ -667,6 +668,9 @@ export function InputArea() {
             <Hammer size={12} />
             {building ? 'Claude baut…' : 'Bauen'}
           </button>
+          <div className="ml-auto">
+            <VoiceModeToggle />
+          </div>
         </div>
         {pendingBuild && (
           <div

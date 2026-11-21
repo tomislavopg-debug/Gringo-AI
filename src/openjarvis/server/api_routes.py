@@ -34,10 +34,14 @@ class AgentMessageRequest(BaseModel):
     message: str
 
 
+from urllib.parse import quote as _url_quote
+
+
 class SpeechSynthesizeRequest(BaseModel):
     text: str
     voice_id: Optional[str] = None
     speed: Optional[float] = None
+    voice_mode: Optional[str] = None  # Gringo AI: "anna" (Standard) oder "jarvis"
 
 
 class MemoryStoreRequest(BaseModel):
@@ -1143,6 +1147,22 @@ async def synthesize_speech(request: Request, body: SpeechSynthesizeRequest):
             detail=f"Text exceeds {_MAX_TTS_CHARS} characters",
         )
 
+    # Gringo AI: Jarvis-Stimme über ElevenLabs, mit automatischem Rückfall auf Anna.
+    fallback_reason = ""
+    if (body.voice_mode or "").lower() == "jarvis":
+        from openjarvis.speech.gringo_jarvis import synthesize_jarvis
+
+        try:
+            audio = await asyncio.to_thread(synthesize_jarvis, text, body.speed or 1.0)
+            return Response(
+                content=audio,
+                media_type="audio/wav",
+                headers={"X-Voice-Id": "Jarvis", "X-Gringo-Voice": "jarvis"},
+            )
+        except Exception as exc:
+            logger.warning("Jarvis-Stimme nicht verfügbar: %s", exc)
+            fallback_reason = str(exc)[:150] or "Jarvis-Stimme nicht erreichbar"
+
     backend = await _resolve_tts_backend(request)
     if backend is None:
         raise HTTPException(
@@ -1173,8 +1193,22 @@ async def synthesize_speech(request: Request, body: SpeechSynthesizeRequest):
         headers={
             "X-Voice-Id": result.voice_id or voice_id,
             "X-Sample-Rate": str(result.sample_rate),
+            "X-Gringo-Voice": "anna",
+            **(
+                {"X-Gringo-Fallback": _url_quote(fallback_reason)}
+                if fallback_reason
+                else {}
+            ),
         },
     )
+
+
+@speech_router.get("/gringo/jarvis")
+async def gringo_jarvis_status():
+    """Gringo AI: Ist die Jarvis-Stimme (ElevenLabs) eingerichtet?"""
+    from openjarvis.speech.gringo_jarvis import jarvis_status
+
+    return jarvis_status()
 
 
 @speech_router.get("/tts/health")

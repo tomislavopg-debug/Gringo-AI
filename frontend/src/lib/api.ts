@@ -1,4 +1,5 @@
 import type { ModelInfo, SavingsData, ServerInfo } from '../types';
+import { useVoiceMode } from './voice-mode';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './supabase';
 import { serializeToolCallArguments } from './tool-call';
 
@@ -409,9 +410,18 @@ export async function synthesizeSpeech(
   const res = await apiFetch(`/v1/speech/synthesize`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, voice_id: opts.voiceId, speed: opts.speed }),
+    body: JSON.stringify({
+      text,
+      voice_id: opts.voiceId,
+      speed: opts.speed,
+      voice_mode: useVoiceMode.getState().mode,
+    }),
     signal: opts.signal,
   });
+  if (res.ok) {
+    const fallback = res.headers.get('X-Gringo-Fallback');
+    useVoiceMode.getState().setFallback(fallback ? decodeURIComponent(fallback) : null);
+  }
   if (!res.ok) {
     let detail = '';
     try {
@@ -1265,3 +1275,13 @@ export const applyGringoBuild = (id: string) =>
 
 export const discardGringoBuild = (id: string) =>
   gringoBuildPost<{ status: string }>(`/${id}/discard`);
+
+export async function fetchJarvisVoiceStatus(): Promise<{ ready: boolean; voice_id?: string }> {
+  try {
+    const res = await apiFetch(`/v1/speech/gringo/jarvis`);
+    if (!res.ok) return { ready: false };
+    return res.json();
+  } catch {
+    return { ready: false };
+  }
+}
