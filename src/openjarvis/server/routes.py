@@ -183,6 +183,25 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
             "Gringo live context failed", exc_info=True
         )
 
+    # Gringo AI: Notizblock (schnelle Notizen des Chefs, auch wenn Gringo aus
+    # war). Legt offene Notizen vor, speichert neue und raeumt erledigte weg.
+    try:
+        from openjarvis.gringo_notes import notes_context
+
+        _n_user = sum(
+            1 for _m in request_body.messages if _m.role == "user"
+        )
+        for _m in reversed(request_body.messages):
+            if _m.role == "user" and isinstance(_m.content, str) and _m.content:
+                _notes = await asyncio.to_thread(notes_context, _m.content, _n_user)
+                if _notes:
+                    _m.content = f"{_notes}\n\n---\n{_m.content}"
+                break
+    except Exception:
+        logging.getLogger("openjarvis.server").warning(
+            "Gringo notes context failed", exc_info=True
+        )
+
     # Inject memory context into messages before dispatching
     config = getattr(request.app.state, "config", None)
     memory_backend = getattr(request.app.state, "memory_backend", None)
